@@ -64,15 +64,25 @@
             margin-bottom: 20px;
         }
 
-        .stock-info { display: flex; align-items: baseline; gap: 15px; }
+        .stock-info { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
         .stock-title { font-size: 1.6rem; font-weight: bold; color: white; }
         .rating-badge {
-            padding: 5px 15px;
+            padding: 5px 12px;
             border-radius: 6px;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             font-weight: 600;
             background: rgba(48, 54, 61, 0.5);
             border: 1px solid var(--border-color);
+            white-space: nowrap;
+        }
+        .insight-badge {
+            font-size: 0.95rem;
+            color: var(--accent);
+            font-weight: 500;
+            background: rgba(88, 166, 255, 0.1);
+            padding: 5px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(88, 166, 255, 0.2);
         }
 
         .chart-container {
@@ -86,11 +96,11 @@
             padding-top: 12px;
             border-top: 1px solid var(--border-color);
             display: flex;
-            justify-content: space-between;
-            font-size: 0.9rem;
+            justify-content: flex-end;
+            font-size: 0.85rem;
+            color: #8b949e;
         }
 
-        .insight { color: var(--accent); font-weight: 500; }
         .tag { color: #8b949e; }
 
         @media (max-width: 700px) {
@@ -113,16 +123,17 @@
         Chart.register(ChartDataLabels);
 
         const rawData = [
-            { id: "3260 威剛", rating: "🔴 渙散", note: "散戶接盤", bigHolder: [52.31, 51.45, 49.82, 48.72], shareholders: [82450, 83900, 86120, 88455] },
-            { id: "2408 南亞科", rating: "🟠 轉弱", note: "人數緩增", bigHolder: [76.55, 76.10, 75.32, 74.18], shareholders: [145120, 146800, 148550, 150210] },
-            { id: "2451 創見", rating: "🟢 安定", note: "幾乎沒動", bigHolder: [61.22, 61.18, 61.05, 61.02], shareholders: [31450, 31420, 31480, 31510] },
-            { id: "5289 宜鼎", rating: "🔴 渙散", note: "拋售明顯", bigHolder: [32.48, 31.55, 30.21, 29.75], shareholders: [12850, 13420, 14100, 14580] },
-            { id: "2337 旺宏", rating: "🟠 弱勢", note: "散戶群聚", bigHolder: [54.82, 53.70, 52.45, 51.55], shareholders: [215600, 218400, 221300, 223800] },
-            { id: "2317 鴻海", rating: "🟢 強勢", note: "籌碼趨向集中", bigHolder: [71.32, 71.35, 71.38, 71.42], shareholders: [852400, 851200, 848900, 846500] },
-            { id: "8299 群聯", rating: "🟡 觀望", note: "小幅稀釋", bigHolder: [58.15, 57.82, 56.95, 56.38], shareholders: [41250, 41800, 42450, 42910] }
+            { id: "8299 群聯", rating: "🔴 渙散", note: "籌碼持續流失", bigHolder: [59.10, 58.29, 57.96, 57.72, 56.39], shareholders: [87255, 92479, 99852, 103604, 108649] },
+            { id: "3260 威剛", rating: "🟡 觀望", note: "止跌回升?", bigHolder: [57.79, 56.28, 53.88, 53.61, 54.90], shareholders: [82053, 84299, 88820, 89758, 92318] },
+            { id: "2451 創見", rating: "🟢 安定", note: "籌碼穩定", bigHolder: [79.74, 79.55, 78.64, 78.46, 79.20], shareholders: [30631, 30700, 31763, 31414, 30857] },
+            { id: "5289 宜鼎", rating: "🟡 觀望", note: "底部反彈", bigHolder: [45.55, 43.28, 42.29, 41.06, 42.73], shareholders: [32930, 34786, 36563, 38951, 37781] },
+            { id: "2408 南亞科", rating: "🔴 轉弱", note: "大戶明顯減持", bigHolder: [85.50, 85.60, 85.23, 85.06, 82.68], shareholders: [214499, 212907, 220465, 222451, 259700] },
+            { id: "2337 旺宏", rating: "🟠 弱勢", note: "籌碼波動較大", bigHolder: [51.64, 58.31, 54.64, 54.67, 51.34], shareholders: [352391, 312595, 351817, 361113, 386809] },
+            { id: "2317 鴻海", rating: "🟡 整理", note: "籌碼微幅下降", bigHolder: [67.70, 67.99, 68.78, 68.41, 67.98], shareholders: [1151214, 1139898, 1109444, 1128098, 1151439] },
+            { id: "2330 台積電", rating: "🟢 穩健", note: "波動極其微小", bigHolder: [89.04, 89.08, 89.06, 88.77, 88.56], shareholders: [1981316, 1982676, 2014899, 2245824, 2389450] }
         ];
 
-        const labels = ["02/20", "02/27", "03/06", "03/13"];
+        const labels = ["02/06", "02/11", "02/26", "03/06", "03/13"];
 
         function createChart(canvasId, stock) {
             const ctx = document.getElementById(canvasId).getContext('2d');
@@ -140,11 +151,12 @@
             // 強制 Y 軸至少有 2.5% 的跨度，避免微小變化看來像垂直墜落
             const bhPadding = Math.max(bhRange * 0.5, 1.25); 
 
-            // 計算股東人數範圍，為了讓差距明顯，縮小範圍
-            const shMin = Math.min(...stock.shareholders);
-            const shMax = Math.max(...stock.shareholders);
-            const shRange = shMax - shMin;
-            const shPadding = shRange * 0.2;
+            // 計算股東變幅範圍，為標籤留出空間
+            const changes = stock.shareholders.map((v, i) => i === 0 ? 0 : ((v - stock.shareholders[i-1]) / stock.shareholders[i-1]) * 100);
+            const chgMin = Math.min(...changes);
+            const chgMax = Math.max(...changes);
+            const chgRange = chgMax - chgMin;
+            const chgPadding = Math.max(chgRange * 0.4, 3.0); // 增加 40% 或至少 3% 的空間
 
             new Chart(ctx, {
                 data: {
@@ -158,7 +170,7 @@
                             backgroundColor: 'transparent',
                             borderWidth: 4,
                             yAxisID: 'y',
-                            tension: 0, // 改為折線，更符合數據真實感
+                            tension: 0,
                             pointRadius: 6,
                             pointHoverRadius: 8,
                             pointBackgroundColor: mainColor,
@@ -172,19 +184,26 @@
                         },
                         {
                             type: 'bar',
-                            label: '股東人數',
-                            data: stock.shareholders,
-                            backgroundColor: 'rgba(139, 148, 158, 0.25)',
-                            borderColor: 'rgba(139, 148, 158, 0.5)',
+                            label: '股東人數週變幅 %',
+                            data: changes,
+                            backgroundColor: (context) => {
+                                const val = context.dataset.data[context.dataIndex];
+                                return val >= 0 ? 'rgba(88, 166, 255, 0.4)' : 'rgba(239, 83, 80, 0.4)';
+                            },
+                            borderColor: (context) => {
+                                const val = context.dataset.data[context.dataIndex];
+                                return val >= 0 ? 'rgba(88, 166, 255, 0.8)' : 'rgba(239, 83, 80, 0.8)';
+                            },
                             borderWidth: 1,
                             yAxisID: 'y1',
                             barPercentage: 0.6,
                             datalabels: {
-                                anchor: 'end',
-                                align: 'bottom',
-                                color: '#8b949e',
-                                font: { size: 10 },
-                                formatter: (v) => (v / 1000).toFixed(1) + 'k'
+                                anchor: (context) => context.dataset.data[context.dataIndex] >= 0 ? 'end' : 'start',
+                                align: (context) => context.dataset.data[context.dataIndex] >= 0 ? 'top' : 'bottom',
+                                color: (context) => context.dataset.data[context.dataIndex] >= 0 ? '#58a6ff' : '#ef5350',
+                                offset: 4,
+                                font: { size: 11, weight: 'bold' },
+                                formatter: (v, ctx) => ctx.dataIndex === 0 ? '' : (v > 0 ? '+' : '') + v.toFixed(1) + '%'
                             }
                         }
                     ]
@@ -192,7 +211,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    layout: { padding: { top: 20 } },
+                    layout: { padding: { top: 45 } },
                     plugins: {
                         legend: { 
                             position: 'top',
@@ -203,7 +222,26 @@
                             titleColor: '#58a6ff',
                             padding: 12,
                             borderColor: '#30363d',
-                            borderWidth: 1
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.dataset.type === 'bar') {
+                                        const val = context.parsed.y;
+                                        if (context.dataIndex === 0) {
+                                            label = `起始人數: ${stock.shareholders[0].toLocaleString()}人`;
+                                        } else {
+                                            label += (val >= 0 ? '+' : '') + val.toFixed(2) + '%';
+                                            const actual = stock.shareholders[context.dataIndex];
+                                            label += ` (${actual.toLocaleString()}人)`;
+                                        }
+                                    } else {
+                                        label += context.parsed.y.toFixed(2) + '%';
+                                    }
+                                    return label;
+                                }
+                            }
                         },
                         datalabels: {
                             display: true
@@ -231,12 +269,12 @@
                             type: 'linear',
                             display: true,
                             position: 'right',
-                            min: shMin - shPadding,
-                            max: shMax + shPadding,
-                            title: { display: true, text: '股東人數', color: '#8b949e' },
+                            min: chgMin - chgPadding,
+                            max: chgMax + chgPadding,
+                            title: { display: true, text: '週變幅 %', color: '#8b949e' },
                             ticks: { 
                                 color: '#8b949e',
-                                callback: (v) => (v >= 10000 ? (v/10000).toFixed(1) + '萬' : v)
+                                callback: (v) => (v > 0 ? '+' : '') + v.toFixed(1) + '%'
                             },
                             grid: { display: false }
                         }
@@ -255,13 +293,13 @@
                     <div class="stock-info">
                         <div class="stock-title">${stock.id}</div>
                         <div class="rating-badge">${stock.rating}</div>
+                        <div class="insight-badge">💡 趨勢：${stock.note}</div>
                     </div>
                 </div>
                 <div class="chart-container">
                     <canvas id="${canvasId}"></canvas>
                 </div>
                 <div class="footer-note">
-                    <span class="insight">💡 趨勢：${stock.note}</span>
                     <span class="tag">更新日期：03/13</span>
                 </div>
             `;
