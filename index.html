@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>籌碼精確分析報告</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --text-main: #c9d1d9;
+            --accent: #58a6ff;
+            --border-color: #30363d;
+            --up-color: #26a69a;
+            --down-color: #ef5350;
+            --warn-color: #f1e05a;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 25px;
+            background: linear-gradient(180deg, var(--card-bg) 0%, var(--bg-color) 100%);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .header h1 { margin: 0; color: var(--accent); }
+        .header p { color: #8b949e; margin-top: 10px; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .stock-info { display: flex; align-items: baseline; gap: 15px; }
+        .stock-title { font-size: 1.6rem; font-weight: bold; color: white; }
+        .rating-badge {
+            padding: 5px 15px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            background: rgba(48, 54, 61, 0.5);
+            border: 1px solid var(--border-color);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+            width: 100%;
+        }
+
+        .footer-note {
+            margin-top: 15px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+
+        .insight { color: var(--accent); font-weight: 500; }
+        .tag { color: #8b949e; }
+
+        @media (max-width: 700px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 籌碼流向精確觀測站</h1>
+            <p>分析週期：2026/02/20 至 2026/03/13 | 每週更新</p>
+        </div>
+        
+        <div class="grid" id="chartGrid"></div>
+    </div>
+
+    <script>
+        // 註冊 DataLabels 插件
+        Chart.register(ChartDataLabels);
+
+        const rawData = [
+            { id: "3260 威剛", rating: "🔴 渙散", note: "散戶接盤", bigHolder: [52.31, 51.45, 49.82, 48.72], shareholders: [82450, 83900, 86120, 88455] },
+            { id: "2408 南亞科", rating: "🟠 轉弱", note: "人數緩增", bigHolder: [76.55, 76.10, 75.32, 74.18], shareholders: [145120, 146800, 148550, 150210] },
+            { id: "2451 創見", rating: "🟢 安定", note: "幾乎沒動", bigHolder: [61.22, 61.18, 61.05, 61.02], shareholders: [31450, 31420, 31480, 31510] },
+            { id: "5289 宜鼎", rating: "🔴 渙散", note: "拋售明顯", bigHolder: [32.48, 31.55, 30.21, 29.75], shareholders: [12850, 13420, 14100, 14580] },
+            { id: "2337 旺宏", rating: "🟠 弱勢", note: "散戶群聚", bigHolder: [54.82, 53.70, 52.45, 51.55], shareholders: [215600, 218400, 221300, 223800] },
+            { id: "2317 鴻海", rating: "🟢 強勢", note: "籌碼趨向集中", bigHolder: [71.32, 71.35, 71.38, 71.42], shareholders: [852400, 851200, 848900, 846500] },
+            { id: "8299 群聯", rating: "🟡 觀望", note: "小幅稀釋", bigHolder: [58.15, 57.82, 56.95, 56.38], shareholders: [41250, 41800, 42450, 42910] }
+        ];
+
+        const labels = ["02/20", "02/27", "03/06", "03/13"];
+
+        function createChart(canvasId, stock) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            
+            // 決定主色調
+            let mainColor = '#58a6ff';
+            if (stock.rating.includes('🟢')) mainColor = '#26a69a';
+            if (stock.rating.includes('🔴') || stock.rating.includes('🟠')) mainColor = '#ef5350';
+            if (stock.rating.includes('🟡')) mainColor = '#f1e05a';
+
+            // 計算大戶持股範圍，避免過度縮放
+            const bhMin = Math.min(...stock.bigHolder);
+            const bhMax = Math.max(...stock.bigHolder);
+            const bhRange = bhMax - bhMin;
+            // 強制 Y 軸至少有 2.5% 的跨度，避免微小變化看來像垂直墜落
+            const bhPadding = Math.max(bhRange * 0.5, 1.25); 
+
+            // 計算股東人數範圍，為了讓差距明顯，縮小範圍
+            const shMin = Math.min(...stock.shareholders);
+            const shMax = Math.max(...stock.shareholders);
+            const shRange = shMax - shMin;
+            const shPadding = shRange * 0.2;
+
+            new Chart(ctx, {
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: '大戶持股 %',
+                            data: stock.bigHolder,
+                            borderColor: mainColor,
+                            backgroundColor: 'transparent',
+                            borderWidth: 4,
+                            yAxisID: 'y',
+                            tension: 0, // 改為折線，更符合數據真實感
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
+                            pointBackgroundColor: mainColor,
+                            datalabels: {
+                                align: 'top',
+                                offset: 8,
+                                color: mainColor,
+                                font: { weight: 'bold', size: 12 },
+                                formatter: (value) => value.toFixed(2) + '%'
+                            }
+                        },
+                        {
+                            type: 'bar',
+                            label: '股東人數',
+                            data: stock.shareholders,
+                            backgroundColor: 'rgba(139, 148, 158, 0.25)',
+                            borderColor: 'rgba(139, 148, 158, 0.5)',
+                            borderWidth: 1,
+                            yAxisID: 'y1',
+                            barPercentage: 0.6,
+                            datalabels: {
+                                anchor: 'end',
+                                align: 'bottom',
+                                color: '#8b949e',
+                                font: { size: 10 },
+                                formatter: (v) => (v / 1000).toFixed(1) + 'k'
+                            }
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: { padding: { top: 20 } },
+                    plugins: {
+                        legend: { 
+                            position: 'top',
+                            labels: { color: '#c9d1d9', boxWidth: 12, usePointStyle: true }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(22, 27, 34, 0.95)',
+                            titleColor: '#58a6ff',
+                            padding: 12,
+                            borderColor: '#30363d',
+                            borderWidth: 1
+                        },
+                        datalabels: {
+                            display: true
+                        }
+                    },
+                    scales: {
+                        x: { 
+                            ticks: { color: '#8b949e' }, 
+                            grid: { display: false } 
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            min: bhMin - bhPadding,
+                            max: bhMax + bhPadding,
+                            title: { display: true, text: '大戶持股 %', color: mainColor },
+                            ticks: { 
+                                color: mainColor,
+                                callback: (v) => v.toFixed(1) + '%'
+                            },
+                            grid: { color: 'rgba(48, 54, 61, 0.5)' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            min: shMin - shPadding,
+                            max: shMax + shPadding,
+                            title: { display: true, text: '股東人數', color: '#8b949e' },
+                            ticks: { 
+                                color: '#8b949e',
+                                callback: (v) => (v >= 10000 ? (v/10000).toFixed(1) + '萬' : v)
+                            },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        const grid = document.getElementById('chartGrid');
+        rawData.forEach((stock, index) => {
+            const canvasId = `chart-${index}`;
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="card-header">
+                    <div class="stock-info">
+                        <div class="stock-title">${stock.id}</div>
+                        <div class="rating-badge">${stock.rating}</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="${canvasId}"></canvas>
+                </div>
+                <div class="footer-note">
+                    <span class="insight">💡 趨勢：${stock.note}</span>
+                    <span class="tag">更新日期：03/13</span>
+                </div>
+            `;
+            grid.appendChild(card);
+            createChart(canvasId, stock);
+        });
+    </script>
+</body>
+</html>
